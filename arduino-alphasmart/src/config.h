@@ -28,6 +28,7 @@
 #define CHAR_NUL '\0'
 #define CHAR_SPC ' '
 #define CHAR_TAB '\t'
+#define WHITESPACE " \t\n"
 // debug
 #define CHAR_EOL_DISPLAY '='
 #define CHAR_NUL_DISPLAY '.'

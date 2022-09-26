@@ -153,51 +153,84 @@ int TextBuffer::content_size(){
 
 // Helpers
 
-int TextBuffer::find_next_occurrence_forward(int start_index, char character) {
+int TextBuffer::find_first_in_forward(int start_index, char* character_list) {
     int content_size = content.content_size();
-    for (int index = start_index; index < content_size; index++ ) {
-        if (get_character(index) == character) { return index; }
+    int list_size = strlen(character_list);
+    for (int index = start_index; index < content_size; index++) {
+        for (int i = 0; i < list_size; i++) {
+            if (character_list[i] == get_character(index)) { return index; }
+        }
+    }
+    return -1;
+}
+int TextBuffer::find_first_in_backward(int start_index, char* character_list) {
+    int list_size = strlen(character_list);
+    for (int index = start_index; index >= 0; index--) {
+        for (int i = 0; i < list_size; i++) {
+            if (character_list[i] == get_character(index)) { return index; }
+        }
+    }
+    return -1;
+}
+int TextBuffer::find_first_not_in_forward(int start_index, char* character_list) {
+    int content_size = content.content_size();
+    int list_size = strlen(character_list);
+    bool match_found;
+    for (int index = start_index; index < content_size; index++) {
+        match_found = false;
+        for (int i = 0; i < list_size; i++) {
+            if (character_list[i] == get_character(index)) { match_found = true; }
+        }
+        if (match_found == false) { return index; }
+    }
+    return -1;
+
+}
+int TextBuffer::find_first_not_in_backward(int start_index, char* character_list) {
+    int list_size = strlen(character_list);
+    bool match_found;
+    for (int index = start_index; index >= 0; index--) {
+        match_found = false;
+        for (int i = 0; i < list_size; i++) {
+            if (character_list[i] == get_character(index)) { match_found = true; }
+        }
+        if (match_found == false) { return index; }
     }
     return -1;
 }
 
-int TextBuffer::find_next_occurrence_backward(int start_index, char character) {
-    for (int index = start_index; index >= 0; index-- ) {
-        if (get_character(index) == character) { return index; }
-    }
-    return -1;
+int TextBuffer::get_prev_window_line_start_index(int current_line_start_index) {
+    // TODO: go back window width, and binary search the forward function until you get the original index.
 }
 
-int TextBuffer::count_occurrences_forward(int start_index, char character) {
-    int occurrences = 0;
-    int content_size = content.content_size();
-    for (int index = start_index; index < content_size; index++ ) {
-        if (get_character(index) == character) { occurrences++; }
+int TextBuffer::get_next_window_line_start_index(int current_line_start_index) {
+    // TODO: hanle tabs and newlines
+    int last_start = current_line_start_index;
+    int last_end = find_first_in_forward(last_start, WHITESPACE) - 1;
+    int current_start = last_start;
+    int current_end = last_end;
+    while (current_end >= 0 &&
+           current_end < current_line_start_index + WINDOW_WIDTH &&
+           current_end < content_size())
+    {
+        last_start = current_start;
+        last_end = current_end;
+        current_start = find_first_not_in_forward(current_end + 1, WHITESPACE);
+        current_end = find_first_in_forward(current_start, WHITESPACE) - 1;
     }
-    return occurrences;
-}
-
-int TextBuffer::count_occurrences_backward(int start_index, char character) {
-    int occurrences = 0;
-    int content_size = content.content_size();
-    for (int index = start_index; index >= 0; index-- ) {
-        if (get_character(index) == character) { occurrences++; }
-    }
-    return occurrences;
-}
-
-int TextBuffer::count_occurrences_all(char character) {
-    return count_occurrences_forward(0, character);
+    return min(current_line_start_index + WINDOW_WIDTH, last_end + 2, content.max_index());
 }
 
 int TextBuffer::get_line_start_index(int content_index) {
     // will return -1 on first line, which is consistent with the return logic
-    int last_line_end = find_next_occurrence_backward(content_index, CHAR_EOL);
+    char character_list[2] = { CHAR_EOL, CHAR_NUL }; // strings are null terminated
+    int last_line_end = find_first_in_backward(content_index, character_list);
     return last_line_end + 1;
 }
 
 int TextBuffer::get_line_end_index(int content_index) {
-    int next_newline = find_next_occurrence_forward(content_index, CHAR_EOL);
+    char character_list[2] = { CHAR_EOL, CHAR_NUL }; // strings are null terminated
+    int next_newline = find_first_in_forward(content_index, character_list);
     return (next_newline < 0) ? content.max_index() : next_newline;
 }
 
