@@ -21,7 +21,7 @@
 #define FIRST_LINE_NUMBER 1
 #define TAB_SIZE 4
 #define WINDOW_HEIGHT 4
-#define WINDOW_WIDTH 40
+#define WINDOW_WIDTH 20
 
 // Special Characters
 #define CHAR_EOL '\n'

@@ -16,29 +16,26 @@ void TextWindow::clear() {
 void TextWindow::get_window() {
   int char_loc = win_start;
   char character = CHAR_NUL;
-  for (int i = 0; i < WINDOW_HEIGHT; i++) {
-    for (int j = 0; j < WINDOW_WIDTH; j++) {
+  for (int row = 0; row < WINDOW_HEIGHT; row++) {
+    for (int col = 0; col < WINDOW_WIDTH; col++) {
       if (buffer->get_point() == char_loc) {
-        cursor_row = i;
-        cursor_col = j;
+        cursor_row = row;
+        cursor_col = col;
       }
-      character = buffer->get_character(char_loc);
-      if (char_loc < buffer->content.max_index()) {
-        char_loc++;
-      }
-      contents[i][j] = character;
+      character = buffer->get_character(char_loc++);
+      contents[row][col] = character;
       if (character == CHAR_EOL) {
-        for (;j < WINDOW_WIDTH; j++) {
-          contents[i][j] = CHAR_NUL;
+        for (;col < WINDOW_WIDTH; col++) {
+          contents[row][col] = CHAR_NUL;
         }
       }
       if (character == CHAR_TAB) {
-        int tab_excess = (j + TAB_SIZE) % TAB_SIZE;
-        int next_stop = j + TAB_SIZE - tab_excess;
-        for (;j < next_stop && j < WINDOW_WIDTH; j++) {
-          contents[i][j] = CHAR_NUL;
+        int tab_excess = (col + TAB_SIZE) % TAB_SIZE;
+        int next_stop = col + TAB_SIZE - tab_excess;
+        for (;col < next_stop && col < WINDOW_WIDTH; col++) {
+          contents[row][col] = CHAR_NUL;
         }
-        j--;
+        col--;
       }
     }
   }

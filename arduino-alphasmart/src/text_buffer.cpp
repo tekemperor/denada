@@ -200,25 +200,35 @@ int TextBuffer::find_first_not_in_backward(int start_index, char* character_list
 }
 
 int TextBuffer::get_prev_window_line_start_index(int current_line_start_index) {
-    // TODO: go back window width, and binary search the forward function until you get the original index.
+    int last_start = current_line_start_index - WINDOW_WIDTH;
+    while (last_start >= 0 && get_next_window_line_start_index(last_start) < current_line_start_index)
+        last_start++;
+    return std::max(last_start, 0);
 }
 
 int TextBuffer::get_next_window_line_start_index(int current_line_start_index) {
-    // TODO: hanle tabs and newlines
     int last_start = current_line_start_index;
     int last_end = find_first_in_forward(last_start, WHITESPACE) - 1;
     int current_start = last_start;
     int current_end = last_end;
+    int extra_space = 0;
+    int column_offset = 0;
     while (current_end >= 0 &&
-           current_end < current_line_start_index + WINDOW_WIDTH &&
+           current_end + extra_space < current_line_start_index + WINDOW_WIDTH &&
            current_end < content_size())
     {
         last_start = current_start;
         last_end = current_end;
         current_start = find_first_not_in_forward(current_end + 1, WHITESPACE);
         current_end = find_first_in_forward(current_start, WHITESPACE) - 1;
+        for(int i = last_end + 1; i < current_start; i++){
+            if (i == CHAR_TAB)
+                extra_space += TAB_SIZE - i % TAB_SIZE;
+            if (i == CHAR_EOL || i + extra_space - current_line_start_index > WINDOW_WIDTH)
+                return std::min({i + 1, current_line_start_index + WINDOW_WIDTH, content.max_index()});
+        }
     }
-    return min(current_line_start_index + WINDOW_WIDTH, last_end + 2, content.max_index());
+    return std::min({last_end + 2, current_line_start_index + WINDOW_WIDTH, content.max_index()});
 }
 
 int TextBuffer::get_line_start_index(int content_index) {

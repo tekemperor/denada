@@ -1,25 +1,28 @@
 #ifndef LCD_H
 #define LCD_H
 
-#include "text_buffer.h"
+#include "text_window.h"
 #include <SerLCD.h>
-void display_text(SerLCD *lcd, TextBuffer *text_buffer)
+void display_text(SerLCD *lcd, TextWindow *window)
 {
-    int buffer_length = text_buffer->content_size();
     lcd->clear();
-    for (int line = 0; line < 4 && line * 20 < buffer_length; line++)
+    window->get_window();
+    char character;
+    for (int row = 0; row < WINDOW_HEIGHT; row++)
     {
-        bool line_full = buffer_length >= 20 + line * 20;
-        int line_length = (line_full) ? 20 : buffer_length % 20;
-        for (int i = (line * 20); i < line_length + (line * 20); i++)
+        lcd->setCursor(0,row);
+        Serial.print("|");
+        for (int col = 0; col < WINDOW_WIDTH; col++)
         {
-            lcd->write(text_buffer->get_character(i));
+            character = window->contents[row][col];
+            if (character == CHAR_NUL)
+                character = CHAR_SPC;
+            lcd->write(character);
+            Serial.print(character);
         }
-        if (line_full && line < 3)
-            lcd->setCursor(0, line + 1);
     }
-    if (buffer_length >= 80)
-        lcd->setCursor(19, 3);
+    lcd->setCursor(window->cursor_col, window->cursor_row);
+    Serial.printf("\n(%d,%d)\n",window->cursor_col, window->cursor_row);
 }
 void display_config(SerLCD *lcd)
 {

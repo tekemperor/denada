@@ -2,6 +2,7 @@
 #define TEXT_BUFFER_H
 #include "gap_buffer.h"
 #include <algorithm>
+#include <cstring>
 
 class TextBuffer {
     public:

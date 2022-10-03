@@ -37,7 +37,7 @@ static void read_buffer_task()
             continue;
         while (!keyboard_buffer.is_empty())
             process_keyboard_input((uint8_t *)keyboard_buffer.read().data);
-        display_text(&lcd, &text_buffer);
+        display_text(&lcd, &text_window);
     }
 }
 static void usb_status(uint8_t usbNum, void *dev)

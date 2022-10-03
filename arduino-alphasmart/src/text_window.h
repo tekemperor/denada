@@ -5,8 +5,8 @@
 class TextWindow {
   public:
     int win_start;
-    int cursor_row;
-    int cursor_col;
+    volatile int cursor_row;
+    volatile int cursor_col;
     TextBuffer* buffer;
     char contents[WINDOW_HEIGHT][WINDOW_WIDTH];
 
