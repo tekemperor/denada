@@ -1,4 +1,5 @@
 #include "text_buffer.h"
+#include <Arduino.h>
 
 TextBuffer::TextBuffer() {
     clear();
@@ -207,6 +208,8 @@ int TextBuffer::get_prev_window_line_start_index(int current_line_start_index) {
 }
 
 int TextBuffer::get_next_window_line_start_index(int current_line_start_index) {
+    int worst_case_index = current_line_start_index + WINDOW_WIDTH;
+    return std::min(worst_case_index, content.content_size());
     int last_start = current_line_start_index;
     int last_end = find_first_in_forward(last_start, WHITESPACE) - 1;
     int current_start = last_start;
@@ -214,7 +217,7 @@ int TextBuffer::get_next_window_line_start_index(int current_line_start_index) {
     int extra_space = 0;
     int column_offset = 0;
     while (current_end >= 0 &&
-           current_end + extra_space < current_line_start_index + WINDOW_WIDTH &&
+           current_end + extra_space < worst_case_index &&
            current_end < content_size())
     {
         last_start = current_start;
@@ -222,12 +225,14 @@ int TextBuffer::get_next_window_line_start_index(int current_line_start_index) {
         current_start = find_first_not_in_forward(current_end + 1, WHITESPACE);
         current_end = find_first_in_forward(current_start, WHITESPACE) - 1;
         for(int i = last_end + 1; i < current_start; i++){
+            Serial.printf("a:%d,%d,%d\n", current_start, current_end, i);
             if (i == CHAR_TAB)
                 extra_space += TAB_SIZE - i % TAB_SIZE;
             if (i == CHAR_EOL || i + extra_space - current_line_start_index > WINDOW_WIDTH)
-                return std::min({i + 1, current_line_start_index + WINDOW_WIDTH, content.max_index()});
+                return std::min({i + 1, worst_case_index, content.max_index()});
         }
     }
+    Serial.println("b");
     return std::min({last_end + 2, current_line_start_index + WINDOW_WIDTH, content.max_index()});
 }
 

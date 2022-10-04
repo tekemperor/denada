@@ -12,7 +12,8 @@ class TextWindow {
 
     TextWindow(TextBuffer*);
     void clear();
-    void get_window();
+    int update_window_contents();
+    void update_window();
 };
 
 #endif  // TEXT_WINDOW_DEBUG_H

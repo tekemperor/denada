@@ -1,4 +1,5 @@
 #include "text_window.h"
+#include <Arduino.h>
 
 TextWindow::TextWindow(TextBuffer* text_buffer) {
     buffer = text_buffer;
@@ -13,7 +14,7 @@ void TextWindow::clear() {
     std::fill_n(&contents[0][0], WINDOW_HEIGHT * WINDOW_WIDTH, 0);
 }
 
-void TextWindow::get_window() {
+int TextWindow::update_window_contents() {
   int char_loc = win_start;
   char character = CHAR_NUL;
   for (int row = 0; row < WINDOW_HEIGHT; row++) {
@@ -38,5 +39,19 @@ void TextWindow::get_window() {
         col--;
       }
     }
+  }
+  return char_loc;
+}
+
+void TextWindow::update_window() {
+  while (win_start > buffer->get_point())
+    win_start = buffer->get_prev_window_line_start_index(win_start);
+  int last_index = 0;
+  int next_index = update_window_contents();
+  while (next_index > last_index && next_index <= buffer->get_point()) {
+    Serial.printf("(%d,%d,%d)\n",win_start,buffer->get_point(),next_index);
+    last_index = next_index;
+    win_start = buffer->get_next_window_line_start_index(win_start);
+    next_index = update_window_contents();
   }
 }

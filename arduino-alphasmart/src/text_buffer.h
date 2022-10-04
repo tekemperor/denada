@@ -37,8 +37,11 @@ class TextBuffer {
     int get_line_number();
     int get_column_number();
     int content_size();
-    int window_get_line_number();
-    int window_get_column_number();
+    //int window_get_line_number();
+    //int window_get_column_number();
+    int get_prev_window_line_start_index(int);
+    int get_next_window_line_start_index(int);
+
     
 
     private:
@@ -54,8 +57,6 @@ class TextBuffer {
     int find_first_in_backward(int, char*);
     int find_first_not_in_forward(int, char*);
     int find_first_not_in_backward(int, char*);
-    int get_prev_window_line_start_index(int);
-    int get_next_window_line_start_index(int);
     int get_line_start_index(int);
     int get_line_end_index(int);
     int get_column_offset(int);

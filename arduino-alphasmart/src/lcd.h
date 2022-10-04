@@ -6,12 +6,12 @@
 void display_text(SerLCD *lcd, TextWindow *window)
 {
     lcd->clear();
-    window->get_window();
+    window->update_window();
     char character;
+    Serial.printf("(%d,%d):",window->cursor_row, window->cursor_col);
     for (int row = 0; row < WINDOW_HEIGHT; row++)
     {
         lcd->setCursor(0,row);
-        Serial.print("|");
         for (int col = 0; col < WINDOW_WIDTH; col++)
         {
             character = window->contents[row][col];
@@ -20,9 +20,10 @@ void display_text(SerLCD *lcd, TextWindow *window)
             lcd->write(character);
             Serial.print(character);
         }
+        Serial.print("|");
     }
     lcd->setCursor(window->cursor_col, window->cursor_row);
-    Serial.printf("\n(%d,%d)\n",window->cursor_col, window->cursor_row);
+    Serial.printf("\n");
 }
 void display_config(SerLCD *lcd)
 {
