@@ -13,47 +13,96 @@ Open an issue requesting maintainer privileges
 * USB Keyboard
 * (optional) USB connector port (to avoid damaging your keyboard's usb cable)
 
-## Instructions
-Installation/Setup:
-* Arduino IDE from https://www.arduino.cc/en/software
-* Open arduino-alphasmart/arduino-alphasmart.ino
-* Install Libraries
-  * ~~Sketch -> Include Library -> Manage Librarires -> "Keypad" -> Install~~
-  * ESP32-USBSoftHost.hpp
-  * SerLCD.h
-  * Wire.h
-* Install Board Library
-  * Arduino -> Preferences -> Additional Boards Manager URLs: URL_HERE -> OK
-    * "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
-  * Tools -> Board: -> Boards Manager -> "esp32" -> Install
-  * Tools -> Board: -> ESP32 Arduino -> "ESP32 Dev Module"
-* Upload Code to ESP32
-  * Connect ESP32 to computer via USB.
-  * Select Port
-    * Tools -> Port: -> /dev/cu.usbserial-0001
-    * Your port may be different
-  * Hold "BOOT" button on ESP32 board
-  * Click the "Upload" button in the Arduino IDE
-  * Wait for "Connecting..."
-  * Let go of "BOOT" button on ESP32
-  * Wait for upload to complete
-* Use Arduino IDE as a serial terminal
-  * Tools -> Serial Monitor -> 115200 baud
-* ~~Connect keypad on pins 3,21,19,18,5,17,16,4~~
-  * ~~believe it or not, these are contiguous on the board~~
-  * ~~If the usb cable is down, and you are looking at the ESP32 Chip,~~
-  ~~these pins are on the right, skipping the first 3 from the top.~~
-* ~~Press keypad buttons to watch things change!~~
-* Connect Pins (you may want to do this earlier)
-  * I2C SDA: 18
-  * I2C SCL: 19
-  * USB DATA+: 22
-  * USB DATA-: 23
-  * there are 4 more wires you'll have to connect, but that's for power so just find something that has the right voltage
-* Whatever you type on the keyboard shows up on the LCD screen.
+## Wiring
+* I2C SDA: 18
+* I2C SCL: 19
+* USB DATA+: 22
+* USB DATA-: 23
+* there are 4 more wires you'll have to connect, but that's for power so just
+  find something that has the right voltage
+
+## Build and flash
+
+With `arduino-cli` (no GUI needed, and this is what the project is developed
+against):
+
+```
+arduino-cli config add board_manager.additional_urls \
+  https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+arduino-cli core update-index
+arduino-cli core install esp32:esp32@2.0.17
+arduino-cli lib install "SparkFun SerLCD Arduino Library"
+arduino-cli lib install "ESP32-USB-Soft-Host"
+
+arduino-cli compile --fqbn esp32:esp32:esp32 arduino-alphasmart
+arduino-cli upload -p /dev/cu.usbserial-0001 --fqbn esp32:esp32:esp32 arduino-alphasmart
+arduino-cli monitor -p /dev/cu.usbserial-0001 --config baudrate=115200
+```
+
+Your serial port will differ. If the upload cannot connect, hold the board's
+BOOT button until "Connecting..." appears, then let go.
+
+With the Arduino IDE, open `arduino-alphasmart/arduino-alphasmart.ino`, add the
+board URL above under Preferences, install the `esp32` board package and the two
+libraries, select "ESP32 Dev Module", and Upload.
+
+## Tests
+
+The editor core -- gap buffer, word wrap, cursor, selection, buffers, the key
+map, the save format -- is plain C++ with no Arduino dependencies, so it builds
+and runs on your development machine in about a second:
+
+```
+cd test && make
+```
+
+Nothing in `src/` should need a flash cycle to verify. Only USB, I2C, flash, and
+the clock genuinely need the board, and those live in the `.ino`.
+
+## Keys
+
+| Key | Action |
+| --- | --- |
+| Arrow keys | Move by character, or by display line |
+| Home / End | Start / end of the display line |
+| Ctrl + Home / End | Start / end of the buffer |
+| Page Up / Page Down | Move by one screen |
+| Shift + any movement | Extend the selection |
+| Backspace / Delete | Delete before / at the cursor |
+| Ctrl + A | Select all |
+| Ctrl + C / X / V | Copy / cut / paste |
+| F1 - F8 | Switch to buffer 1 - 8 |
+| F9 | Send the current buffer to the host |
+
+Text wraps at word boundaries, the screen follows the cursor, and a word longer
+than the screen is broken at the edge. Held keys repeat.
+
+Because a 20x4 character LCD cannot highlight a range, an active selection is
+reported by size on the bottom row rather than shown in place.
+
+## Storage
+
+Eight buffers of 8184 bytes each live in RAM at once, which is what makes
+switching between them instant. They are written to the ESP32's own flash
+(LittleFS, one file per buffer) once typing has been idle for two seconds, so
+text survives a power cut but steady typing does not thrash the flash.
+
+Buffer size and count are `GAP_BUFFER_RAW_SIZE` and `BUFFER_COUNT` in
+`src/config.h`. The current build uses 26% of program storage and 28% of RAM,
+so there is room to raise them; `capacity` is a `uint16_t`, so keep
+`GAP_BUFFER_RAW_SIZE` at or below 65535.
 
 ## Caveats
 * ~~Only printable characters and backspace are recognized.~~
 * ~~The LCD screen does not scroll.~~
 * ~~Cursor navigation not yet supported.~~
-* Does not save/load/export buffers
+* ~~Does not save/load/export buffers~~
+* Sending a buffer (F9) writes it out the serial port, not as a USB keyboard.
+  **The classic ESP32-WROOM cannot present as a USB keyboard at all** -- it has
+  no USB device peripheral. The socket on the dev board is a CP2102 UART bridge,
+  and `ESP32-USBSoftHost` bit-bangs *host* mode, which is the opposite
+  direction. Keyboard output needs a chip with native USB OTG, meaning an
+  ESP32-S2 or S3. The transport is abstracted in `src/text_output.h` and the
+  HID implementation is there, compiled only for those targets and **not
+  verified on hardware.**
+* No UTF-8; the buffer is bytes and the LCD is a character device.

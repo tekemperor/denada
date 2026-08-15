@@ -18,6 +18,8 @@
 #define GAP_BUFFER_HEADER_SIZE 8
 #define GAP_BUFFER_DATA_SIZE (GAP_BUFFER_RAW_SIZE - GAP_BUFFER_HEADER_SIZE)
 
+// Laid out so the whole struct can be written to flash verbatim and read back
+// by a later firmware: version comes first and is checked on load.
 struct GapBufferRaw
 {
     uint16_t version;   /* 2 bytes */
@@ -39,11 +41,30 @@ public:
     void clear();
     int gap_size();
     int content_size();
+    int capacity();
     int max_index();
+    bool is_full();
+    // Returns false when the buffer is full or the index is out of range, so a
+    // dropped keystroke is reportable rather than silent.
     bool insert_character(int, char);
     char get_character(int);
+    // Returns CHAR_NUL when the index is out of range and nothing was deleted.
     char delete_char(int);
     int buffer_index_from_content(int);
+
+    // Persistence. The struct is the on-flash format: it is written verbatim
+    // and validated on the way back in, which is what the version field in the
+    // header has been there for since the first commit.
+    const uint8_t* raw_bytes();
+    // Writable view, so a file can be read straight into the buffer instead of
+    // through an 8K bounce buffer on a FreeRTOS task stack.
+    uint8_t* raw_storage();
+    static int raw_size();
+    // False (and the buffer is left empty) if the record is not one this
+    // firmware understands, so a corrupt or older file cannot be read as text.
+    bool load_raw(const uint8_t*, int);
+    bool adopt_raw();
+    int gap_start();
 
 private:
     int content_index_from_buffer(int);

@@ -22,10 +22,18 @@ int GapBuffer::content_size()
 {
     return buffer.capacity - gap_size();
 }
+int GapBuffer::capacity()
+{
+    return buffer.capacity;
+}
 int GapBuffer::max_index()
 {
     return content_size() - 1;
 };
+bool GapBuffer::is_full()
+{
+    return gap_size() <= 0;
+}
 
 int GapBuffer::content_index_from_buffer(int buffer_index)
 {
@@ -70,6 +78,16 @@ int GapBuffer::buffer_index_from_content(int content_index)
 
 void GapBuffer::move_gap(int content_insertion_index)
 {
+    // Clamped because both loops below walk gap_end through the backing array;
+    // an index past the content would run it off the end of data[].
+    if (content_insertion_index < 0)
+    {
+        content_insertion_index = 0;
+    }
+    if (content_insertion_index > content_size())
+    {
+        content_insertion_index = content_size();
+    }
     if (content_insertion_index == buffer.gap_start)
     {
         return;
@@ -92,7 +110,11 @@ void GapBuffer::move_gap(int content_insertion_index)
 
 bool GapBuffer::insert_character(int content_index, char content_value)
 {
-    if (content_size() >= buffer.capacity)
+    if (is_full())
+    {
+        return false;
+    }
+    if (content_index < 0 || content_index > content_size())
     {
         return false;
     }
@@ -104,7 +126,7 @@ bool GapBuffer::insert_character(int content_index, char content_value)
 
 char GapBuffer::get_character(int content_index)
 {
-    // -1 for out of bounds
+    // CHAR_NUL for out of bounds
     int buffer_index = buffer_index_from_content(content_index);
     if (buffer_index < 0)
     {
@@ -115,7 +137,9 @@ char GapBuffer::get_character(int content_index)
 
 char GapBuffer::delete_char(int content_index)
 {
-    if (gap_size() >= buffer.capacity)
+    // Deleting *at* content_size() would consume the byte past the end of the
+    // content, which is inside the gap and not text at all.
+    if (content_index < 0 || content_index > max_index())
     {
         return CHAR_NUL;
     }
@@ -124,4 +148,56 @@ char GapBuffer::delete_char(int content_index)
     buffer.data[buffer.gap_end] = CHAR_NUL;
     buffer.gap_end++;
     return deleted_character;
+}
+
+const uint8_t *GapBuffer::raw_bytes()
+{
+    return (const uint8_t *)&buffer;
+}
+
+uint8_t *GapBuffer::raw_storage()
+{
+    return (uint8_t *)&buffer;
+}
+
+int GapBuffer::raw_size()
+{
+    return (int)sizeof(struct GapBufferRaw);
+}
+
+int GapBuffer::gap_start()
+{
+    return buffer.gap_start;
+}
+
+bool GapBuffer::load_raw(const uint8_t *bytes, int size)
+{
+    if (bytes == nullptr || size != raw_size())
+    {
+        return false;
+    }
+    std::copy(bytes, bytes + size, (uint8_t *)&buffer);
+    if (!adopt_raw())
+    {
+        clear();
+        return false;
+    }
+    return true;
+}
+
+bool GapBuffer::adopt_raw()
+{
+    if (buffer.version != GAP_BUFFER_VERSION)
+    {
+        return false;
+    }
+    if (buffer.capacity != GAP_BUFFER_DATA_SIZE)
+    {
+        return false;
+    }
+    if (buffer.gap_start > buffer.gap_end || buffer.gap_end > buffer.capacity)
+    {
+        return false;
+    }
+    return true;
 }

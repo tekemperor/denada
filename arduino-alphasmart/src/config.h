@@ -11,10 +11,23 @@
 #define PIN_USB_DATA_MINUS 23
 
 // Storage (in bytes)
-#define GAP_BUFFER_RAW_SIZE 1024
-#define BUFFER_FILENAME_SIZE 256
-#define BUFFER_NAME_SIZE 256
+// GAP_BUFFER_RAW_SIZE is the whole on-flash record for one buffer, header
+// included, so the writable text is GAP_BUFFER_DATA_SIZE. BUFFER_COUNT of them
+// live in RAM at once, which is what makes buffer switching instant. At 8K x 8
+// that is 64K of the ESP32's ~320K, measured against a baseline build that left
+// 292K free. Both are safe to raise; capacity is a uint16_t, so keep
+// GAP_BUFFER_RAW_SIZE at or below 65535.
+#define GAP_BUFFER_RAW_SIZE 8192
+#define BUFFER_COUNT 8
+#define CLIPBOARD_SIZE 1024
+#define BUFFER_NAME_SIZE 32
 #define KEYBOARD_BUFFER_SIZE 256
+
+// Persistence
+// Buffers are written to flash once typing has been idle this long, so a power
+// loss costs at most this much work, and steady typing does not thrash flash.
+#define AUTOSAVE_IDLE_MILLISECONDS 2000
+#define STORAGE_PATH_FORMAT "/buffer%d.txt"
 
 // Display
 #define FIRST_COLUMN_NUMBER 1
@@ -22,6 +35,12 @@
 #define TAB_SIZE 4
 #define WINDOW_HEIGHT 4
 #define WINDOW_WIDTH 20
+// How long a transient notice ("buffer full", "sent") holds the screen.
+#define STATUS_MESSAGE_MILLISECONDS 1200
+
+// Send-buffer output
+// Delay between simulated keystrokes when replaying a buffer to a host.
+#define SEND_KEYSTROKE_DELAY_MILLISECONDS 8
 
 // Special Characters
 #define CHAR_EOL '\n'
@@ -39,5 +58,9 @@
 // USB KeyBoard - ESP32-Wroom
 //#define PROFILE_NAME "Default Wroom"
 //#define DEBUG_ALL
+
+// Set to 1 to trace window/render internals over the serial port. This used to
+// be unconditional, which printed the whole screen on every keystroke.
+#define DEBUG_WINDOW_TRACE 0
 
 #endif // CONFIG_H

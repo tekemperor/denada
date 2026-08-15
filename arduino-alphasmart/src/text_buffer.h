@@ -4,64 +4,79 @@
 #include <algorithm>
 #include <cstring>
 
+// One editable document: content, the point, and a selection anchor.
+//
+// TextBuffer deals only in *logical* lines, the ones delimited by newlines. How
+// text folds into a 20-column screen is TextWindow's problem. Keeping the split
+// here is what makes word wrap possible at all: a wrapped line does not begin at
+// a fixed multiple of the screen width, so anything that reasoned about
+// position as "column offset % window width" was working from a false premise.
+//
+// Column offsets are computed on demand by scanning from the start of the line
+// rather than mutated incrementally as the point moves. The incremental version
+// carried three separate and mutually inconsistent rules for how wide a tab is,
+// and any disagreement between them desynced the cursor permanently.
 class TextBuffer {
     public:
     GapBuffer content;
     char buffer_name[BUFFER_NAME_SIZE];
-    char file_name[BUFFER_FILENAME_SIZE];
     bool is_modified;
- 
+
     TextBuffer();
     void clear();
-    
-    // Modification
-    void insert_character(char);
-    void delete_characters(int);
 
-    // Navigation
-    void move_point_left_explicit();
-    void move_point_right_explicit();
-    void move_point_up();
-    void move_point_down();
-    void move_point_home();
-    void move_point_end();
+    // Modification. Each returns false if the buffer was too full to take the
+    // whole edit, so a dropped keystroke can be surfaced instead of vanishing.
+    bool insert_character(char);
+    bool insert_text(const char*, int);
+    bool delete_before_point(int);
+    bool delete_after_point(int);
+    int delete_range(int, int);
 
-    void window_move_point_up(int);
-    void window_move_point_down(int);
-    void window_move_point_page_up(int,int);
-    void window_move_point_page_down(int,int);
+    // Point movement
+    void set_point(int);
+    void move_point_left();
+    void move_point_right();
+    void move_point_to_line_start();
+    void move_point_to_line_end();
+    void move_point_to_buffer_start();
+    void move_point_to_buffer_end();
+
+    // Selection
+    void set_anchor();
+    void set_anchor_at(int);
+    void clear_anchor();
+    bool has_selection();
+    int selection_start();
+    int selection_end();
+    int copy_selection(char*, int);
+    void delete_selection();
 
     // Status
     char get_character(int);
     int get_point();
+    int get_anchor();
     int get_line_number();
     int get_column_number();
     int content_size();
-    //int window_get_line_number();
-    //int window_get_column_number();
-    int get_prev_window_line_start_index(int);
-    int get_next_window_line_start_index(int);
+    bool is_full();
 
-    
+    // Persistence
+    const uint8_t* raw_bytes();
+    static int raw_size();
+    bool load_raw(const uint8_t*, int);
+    uint8_t* raw_storage_for_load();
+    bool finish_raw_load(bool);
 
-    private:
-    int point;
-    int actual_line_offset;
-    int actual_column_offset;
-    int desired_column_offset;
-    int window_line_offset;
-    int window_column_offset;
-    
-    // Helpers
-    int find_first_in_forward(int, char*);
-    int find_first_in_backward(int, char*);
-    int find_first_not_in_forward(int, char*);
-    int find_first_not_in_backward(int, char*);
+    // Logical line helpers
     int get_line_start_index(int);
     int get_line_end_index(int);
     int get_column_offset(int);
-    void move_point_left_implicit();
-    void move_point_right_implicit();
-    void declare_column_desired();
+
+    private:
+    int point;
+    int anchor;  // -1 when there is no selection
+
+    int clamp_index(int);
 };
 #endif  // TEXT_BUFFER_H

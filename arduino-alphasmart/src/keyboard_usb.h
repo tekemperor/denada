@@ -1,10 +1,17 @@
 #ifndef KEYBOARD_USB_H
 #define KEYBOARD_USB_H
 /**
- * References: https://github.com/felis/USB_Host_Shield_2.0
+ * HID boot-protocol keyboard decoding.
+ *
+ * The scancode tables and OEM-to-ASCII rules are ported from
+ * https://github.com/felis/USB_Host_Shield_2.0
+ *
+ * The translation half is deliberately pure: parse() turns an 8-byte report
+ * into EditorActions and touches nothing else, so the entire key map is
+ * testable on the host without a USB stack or a keyboard.
  */
 #include "config.h"
-#include "text_buffer.h"
+#include "editor_command.h"
 #include "keyboard_buffer_usb.h"
 #include "keycodes_usb.h"
 #include <pgmspace.h>
@@ -13,100 +20,46 @@
 #define VALUE_BETWEEN(v, l, h) (((v) > (l)) && ((v) < (h)))
 #define VALUE_WITHIN(v, l, h) (((v) >= (l)) && ((v) <= (h)))
 
-struct MODIFIERKEYS
-{
-    uint8_t bmLeftCtrl : 1;
-    uint8_t bmLeftShift : 1;
-    uint8_t bmLeftAlt : 1;
-    uint8_t bmLeftGUI : 1;
-    uint8_t bmRightCtrl : 1;
-    uint8_t bmRightShift : 1;
-    uint8_t bmRightAlt : 1;
-    uint8_t bmRightGUI : 1;
-};
+#define KEY_MOD_ANY_SHIFT (KEY_MOD_LSHIFT | KEY_MOD_RSHIFT)
+#define KEY_MOD_ANY_CTRL (KEY_MOD_LCTRL | KEY_MOD_RCTRL | KEY_MOD_LMETA | KEY_MOD_RMETA)
 
-struct KBDINFO
-{
-    struct
-    {
-        uint8_t bmLeftCtrl : 1;
-        uint8_t bmLeftShift : 1;
-        uint8_t bmLeftAlt : 1;
-        uint8_t bmLeftGUI : 1;
-        uint8_t bmRightCtrl : 1;
-        uint8_t bmRightShift : 1;
-        uint8_t bmRightAlt : 1;
-        uint8_t bmRightGUI : 1;
-    };
-    uint8_t bReserved;
-    uint8_t Keys[KBDINFO_MAX_KEYS];
-};
-
-struct KBDLEDS
-{
-    uint8_t bmNumLock : 1;
-    uint8_t bmCapsLock : 1;
-    uint8_t bmScrollLock : 1;
-    uint8_t bmCompose : 1;
-    uint8_t bmKana : 1;
-    uint8_t bmReserved : 3;
-};
+// The most actions a single report can produce, one per key slot.
+#define KEYBOARD_MAX_ACTIONS KBDINFO_MAX_KEYS
 
 class KeyboardInputHandler
 {
-    static const uint8_t numKeys[10];
-    static const uint8_t symKeysUp[12];
-    static const uint8_t symKeysLo[12];
-    static const uint8_t padKeys[5];
-
-protected:
-    union
-    {
-        KBDINFO kbdInfo;
-        uint8_t bInfo[sizeof(KBDINFO)];
-    } prevState;
-
-    union
-    {
-        KBDLEDS kbdLeds;
-        uint8_t bLeds;
-    } kbdLockingKeys;
-
 public:
-    KeyboardInputHandler()
-    {
-        // bLeds = 0;
-        bmCapsLock = false;
-        bmNumLock = false;
-        bmScrollLock = false;
-    };
+    KeyboardInputHandler();
 
     bool bmCapsLock;
     bool bmNumLock;
     bool bmScrollLock;
 
-    uint8_t OemToAscii(uint8_t mod, uint8_t key);
-    void Parse(uint8_t len, uint8_t *buf, TextBuffer *text_buffer);
+    // Decodes one report, emitting actions only for newly pressed keys.
+    // Returns how many were written to `actions`.
+    int parse(const uint8_t *report, EditorAction *actions, int max_actions);
 
-protected:
-    virtual uint8_t HandleLockingKeys(uint8_t key)
-    {
-        if (key == KEY_NUMLOCK)
-            bmNumLock = !bmNumLock;
-        if (key == KEY_CAPSLOCK)
-            bmCapsLock = !bmCapsLock;
-        if (key == KEY_SCROLLLOCK)
-            bmScrollLock = !bmScrollLock;
-        return 0;
-    };
+    // What a key means right now. Public because key repeat re-issues it.
+    EditorAction translate(uint8_t modifiers, uint8_t key);
 
-    virtual void OnControlKeysChanged(uint8_t before __attribute__((unused)), uint8_t after __attribute__((unused))){};
-    virtual void OnKeyDown(uint8_t mod __attribute__((unused)), uint8_t key __attribute__((unused))){};
-    virtual void OnKeyUp(uint8_t mod __attribute__((unused)), uint8_t key __attribute__((unused))){};
-    virtual const uint8_t *getNumKeys() { return numKeys; };
-    virtual const uint8_t *getSymKeysUp() { return symKeysUp; };
-    virtual const uint8_t *getSymKeysLo() { return symKeysLo; };
-    virtual const uint8_t *getPadKeys() { return padKeys; };
+    uint8_t oem_to_ascii(uint8_t modifiers, uint8_t key);
+
+    // For auto-repeat: the key still held from the last report, or KEY_NONE.
+    uint8_t held_key();
+    uint8_t held_modifiers();
+
+    void reset();
+
+private:
+    static const uint8_t numKeys[10];
+    static const uint8_t symKeysUp[12];
+    static const uint8_t symKeysLo[12];
+    static const uint8_t padKeys[5];
+
+    uint8_t previous_report[KBDINFO_SIZE];
+
+    bool was_held(uint8_t key);
+    void handle_locking_keys(uint8_t key);
 };
 
 #endif // KEYBOARD_USB_H
