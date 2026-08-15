@@ -35,6 +35,26 @@
 #define TAB_SIZE 4
 #define WINDOW_HEIGHT 4
 #define WINDOW_WIDTH 20
+
+// Power
+//
+// The backlight is the only significant current draw this firmware controls.
+// Everything else is fixed by the hardware choice: the USB keyboard is bus
+// powered by us, the ESP32 cannot leave 240MHz because the soft USB host
+// calibrates its NOP bit-timing against the boot clock, and it cannot light
+// sleep because that host runs from a 1kHz timer ISR. See docs/power.md for
+// the full census and what would actually reach the wiki's battery target.
+//
+// ESTIMATED, not measured on this board: the SerLCD RGB backlight is on the
+// order of 20-30mA at level 64 on all three channels.
+//
+// Two stages rather than one, because a writing device is stared at while you
+// think, not only while you type. Thirty seconds of stillness is a pause; five
+// minutes is you having walked away.
+#define BACKLIGHT_LEVEL 64             // 0-255 per channel, while writing
+#define BACKLIGHT_DIM_LEVEL 12         // still readable indoors
+#define BACKLIGHT_DIM_MILLISECONDS 30000
+#define BACKLIGHT_OFF_MILLISECONDS 300000
 // How long a transient notice ("buffer full", "sent") holds the screen.
 #define STATUS_MESSAGE_MILLISECONDS 1200
 

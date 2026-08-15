@@ -41,6 +41,7 @@ KeyboardInputBuffer keyboard_buffer;
 TaskHandle_t editor_task_handle;
 
 static unsigned long last_edit_at = 0;
+static unsigned long last_activity_at = 0;
 static bool save_pending = false;
 static unsigned int last_status_sequence = 0;
 static unsigned long status_shown_at = 0;
@@ -65,6 +66,31 @@ static void note_possible_edit()
             save_pending = true;
             return;
         }
+    }
+}
+
+// Steps the backlight down as the device sits unattended and restores it on
+// any key. This is the only draw on the board the firmware actually controls
+// -- the bus-powered keyboard, the 240MHz floor the soft USB host imposes, and
+// the dev board's own regulators are all larger and all fixed in hardware.
+// docs/power.md has the census.
+//
+// The key that wakes the backlight also types. Losing the first character of a
+// sentence to a wake-up would be worse than a bright screen.
+static void update_backlight()
+{
+    unsigned long idle = millis() - last_activity_at;
+    if (idle >= BACKLIGHT_OFF_MILLISECONDS)
+    {
+        display_set_backlight(&lcd, 0);
+    }
+    else if (idle >= BACKLIGHT_DIM_MILLISECONDS)
+    {
+        display_set_backlight(&lcd, BACKLIGHT_DIM_LEVEL);
+    }
+    else
+    {
+        display_set_backlight(&lcd, BACKLIGHT_LEVEL);
     }
 }
 
@@ -193,9 +219,13 @@ static void editor_task()
             handle_send_request();
             changed = true;
         }
+        // Recorded before the status timer runs, so a status message expiring
+        // on its own does not read as the writer still being here.
+        if (changed) { last_activity_at = millis(); }
         if (changed) { note_possible_edit(); }
         if (update_status_timer()) { changed = true; }
         if (changed) { redraw(); }
+        update_backlight();
         autosave_if_idle();
     }
 }
@@ -250,6 +280,7 @@ void setup()
 
     delay(SPLASH_MILLISECONDS);
     lcd.clear();
+    last_activity_at = millis();
     redraw();
     xTaskCreate((TaskFunction_t)editor_task, "editor_task", EDITOR_TASK_STACK_BYTES,
                 NULL, 5, &editor_task_handle);

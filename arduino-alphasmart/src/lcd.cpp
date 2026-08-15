@@ -1,11 +1,30 @@
 #include "lcd.h"
 #include <Arduino.h>
 
+// Last level written, so an unchanged level costs no I2C traffic.
+static int current_backlight_level = -1;
+
+void display_set_backlight(SerLCD *lcd, uint8_t level)
+{
+    if ((int)level == current_backlight_level)
+    {
+        return;
+    }
+    current_backlight_level = level;
+    lcd->setFastBacklight(level, level, level);
+    // Unconditional but transition-only, so it costs a line a few times a
+    // minute at most. Backlight state is the one power behaviour on this board
+    // the firmware controls, and it is invisible from anywhere except the
+    // screen itself -- without this there is no way to confirm the idle policy
+    // ran other than sitting and watching the device.
+    Serial.printf("[power] backlight %d\n", level);
+}
+
 void display_config(SerLCD *lcd)
 {
-    lcd->disableSystemMessages();      // Remove vendor branding
-    lcd->setContrast(128);             // 0-255 0 is highest contrast
-    lcd->setFastBacklight(64, 64, 64); // 0-255 R,G,B
+    lcd->disableSystemMessages(); // Remove vendor branding
+    lcd->setContrast(128);        // 0-255 0 is highest contrast
+    display_set_backlight(lcd, BACKLIGHT_LEVEL);
     lcd->clear();
     lcd->setCursor(0, 1);
     lcd->print(" LibreSmart DeNada");
